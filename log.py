@@ -8,25 +8,25 @@ class bcolors:
         BOLD = '\033[1m'
         UNDERLINE = '\033[4m'
 
-def _P(msg):
+def _P(msg = ''):
     """
     Print primary color 
     """
     return "{}{}{}".format(bcolors.OKBLUE, msg, bcolors.ENDC)
 
-def _S(msg):
+def _S(msg = ''):
     """
     print secondary color
     """
     return "{}{}{}".format(bcolors.WARNING, msg, bcolors.ENDC)
 
-def _L(msg):
+def _L(msg = ''):
     """
     print the log for finding faster
     """
     print('{}>{} {}'.format(bcolors.OKBLUE, bcolors.ENDC, msg))
 
-def _D(msg):
+def _D(msg = ''):
     """
     print the error
     """

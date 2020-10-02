@@ -59,7 +59,7 @@ class Daquar(Dataset):
         )
 
 
-def download_daquar(path="./data/daquar", force=False):
+def download_daquar(path="./data/daquar", force=False, verbose=False):
     """
     Download DAQUAR dataset, including images and question answer pairs, more
     info can be found at https://www.mpi-inf.mpg.de    
@@ -69,28 +69,56 @@ def download_daquar(path="./data/daquar", force=False):
     urls = DAQUAR_URLS
 
     # images dir
-    images_dir = os.path.abspath(
+    images_download_dir = os.path.abspath(
         os.path.join(path, urls["images"].split("/")[-1].split(".")[0])
     )
+    test_img_dir = os.path.abspath(
+        os.path.join(path, 'test_images')
+    )
+    train_img_dir = os.path.abspath(
+        os.path.join(path, 'train_images')
+    )
 
-    if force or os.path.exists(images_dir) == False:
-        # download the dataset from the web
-        _L('Downloading ' + _P('DAQUAR') + ' in ' + _S(path))
-        # download_dataset(urls, path)
+    paths = {
+        'test_images'   : test_img_dir,
+        'train_images'  : train_img_dir
+    }
 
-        # untar the downloaded files
-        _L("Extracting the images in " + _P(images_dir))
-        os.system(
-            "tar xvfj {} -C {}".format(
-                os.path.join(path, urls['images'].split("/")[-1]), os.path.join(path)
-            )
-        )
-        _L('Extracted ' + _P(len(os.listdir(images_dir))) + ' Images in ' + _S(images_dir))
-
-    paths = {}
     for key in urls:
         paths[key] = os.path.abspath(os.path.join(path, urls[key].split("/")[-1]))
 
-    paths["images"] = images_dir
-    
+    if force or (os.path.exists(test_img_dir) == False and os.path.exists(train_img_dir)):
+        # Del existing directories 
+        os.system('rm -rf {} {}'.format(test_img_dir, train_img_dir))
+
+        # download the dataset from the web
+        _L('Downloading ' + _P('DAQUAR') + ' in ' + _S(path))
+        download_dataset(urls, path)
+
+        # untar the downloaded files
+        _L("Extracting the images in " + _P(images_download_dir))
+        os.system(
+            "tar xvfj {} -C {} {}".format(
+                os.path.join(path, urls['images'].split("/")[-1]), os.path.join(path),
+                '>/dev/null 2>&1' if verbose == False else ' '
+            )
+        )
+        os.system('mv {} {}'.format(images_download_dir, test_img_dir))
+
+        # Seperate files according to train.txt and test.txt
+        _L('Seperating files from {} to {}'.format(_P(test_img_dir), _S(train_img_dir)))
+        os.makedirs(train_img_dir, exist_ok=True)
+        with open(paths['training_images']) as training_images_list:
+            for image in [line.rstrip('\n') for line in training_images_list]:
+                from_ = os.path.abspath(os.path.join(test_img_dir, image)) + '.png'
+                to_ = os.path.abspath(os.path.join(train_img_dir, image)) + '.png'
+                os.system('mv {} {}'.format(from_, to_))
+                
+                if verbose: _L('{} moved to {}'.format(_P(from_), _S(to_)))
+
+        _L('Extracted ' + _P(len(os.listdir(test_img_dir))) + ' Images in ' + _S())
+        _L('Extracted ' + _P(len(os.listdir(train_img_dir))) + ' Images in ' + _S())
+
+    paths.pop('images', None)
+
     return paths
