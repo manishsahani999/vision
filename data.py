@@ -1,71 +1,96 @@
-import os
 from log import _P, _L, _D, _S
+from torch.utils.data import Dataset
+from PIL import Image
+import os
+import natsort
 
+DAQUAR_URLS = {
+    "qa_all"            : "https://datasets.d2.mpi-inf.mpg.de/mateusz14visual-turing/qa.894.raw.txt",
+    "qa_train"          : "http://datasets.d2.mpi-inf.mpg.de/mateusz14visual-turing/qa.894.raw.train.txt",
+    "qa_test"           : "http://datasets.d2.mpi-inf.mpg.de/mateusz14visual-turing/qa.894.raw.test.txt",
+    "training_images"   : "http://datasets.d2.mpi-inf.mpg.de/mateusz14visual-turing/train.txt",
+    "test_image"        : "http://datasets.d2.mpi-inf.mpg.de/mateusz14visual-turing/test.txt",
+    "images"            : "http://datasets.d2.mpi-inf.mpg.de/mateusz14visual-turing/nyu_depth_images.tar",
+}
 
-class Dataset:
+def download_dataset(urls, path):
     """
-    Class to download Dataset
-    """
-    def __init__(self, urls, path):
-        """
-        Constructor for creating the Dataset instance
-        """
-        self._urls = urls
-        self._path = path
-
-        # check if the path exist or not 
-        os.makedirs(os.path.normpath(path), exist_ok=True)
+    Download dataset from the web
     
-    def download(self):
-        """
-        Download the dataset from the web
-        """
-        for url in self._urls:
-            _L('Downloading ' + _P(url) + ' in ' + self._path)
-            os.system('wget {} -P {path}'.format(url, path=self._path))
+    Args:
+        urls (dic)      : urls to download the dataset
+        path (string)   : path where the dataset will be downloaded 
+    """
 
-def download_daquar(path="./data/daquar"):
+    # check if the path exist or not
+    os.makedirs(os.path.normpath(path), exist_ok=True)
+
+    # Download the dataset
+    for key in urls:
+        _L("Downloading " + _P(urls[key]) + " in " + _S(path))
+        os.system("wget {} -P {}".format(urls[key], path))
+
+
+class Daquar(Dataset):
+    """
+    DAQUAR dataset, more info can be found at 
+    """
+
+    def __init__(self, main_dir, transform):
+        """
+        Constructor for the Daquar
+        """
+        self.main_dir = main_dir
+        self.transform = transform
+        self.total_imgs = natsort.natsorted(os.listdir(main_dir))
+
+    def __len__(self):
+        """
+        returns the length of the dataset
+        """
+        return len(self.total_imgs)
+
+    def __getitem__(self, idx):
+        """
+        return the item from the dataset
+        """
+        return self.transform(
+            Image.open(os.path.join(self.main_dir, self.total_imgs[idx])).convert("RGB")
+        )
+
+
+def download_daquar(path="./data/daquar", force=False):
     """
     Download DAQUAR dataset, including images and question answer pairs, more
-    info can be found at 
-        https://www.mpi-inf.mpg.de/departments/computer-vision-and-machine-learning/research/vision-and-language/visual-turing-challenge
-        
+    info can be found at https://www.mpi-inf.mpg.de    
     """
-    
-    # Urls for the dataset 
-    urls = [
-        "http://datasets.d2.mpi-inf.mpg.de/mateusz14visual-turing/qa.894.raw.train.txt",
-        "http://datasets.d2.mpi-inf.mpg.de/mateusz14visual-turing/qa.894.raw.test.txt"
-        "https://datasets.d2.mpi-inf.mpg.de/mateusz14visual-turing/qa.894.raw.txt",
-        "http://datasets.d2.mpi-inf.mpg.de/mateusz14visual-turing/train.txt",
-        "http://datasets.d2.mpi-inf.mpg.de/mateusz14visual-turing/test.txt",
-        # images
-        "http://datasets.d2.mpi-inf.mpg.de/mateusz14visual-turing/nyu_depth_images.tar",
-    ]
 
-    daquar = Dataset(urls, path)
+    # urls for the dataset
+    urls = DAQUAR_URLS
 
-    # download the dataset from the web
-    daquar.download()
-
-    # untar the downloaded files
+    # images dir
     images_dir = os.path.abspath(
-        os.path.join(path, urls[-1].split("/")[-1].split(".")[0])
+        os.path.join(path, urls["images"].split("/")[-1].split(".")[0])
     )
-    
-    _L("Extracting the files in " + _P(images_dir))
-    os.system(
-        "tar xvfj {} -C {}".format(
-            os.path.join(path, urls[-1].split("/")[-1]), os.path.join(path)
+
+    if force or os.path.exists(images_dir) == False:
+        # download the dataset from the web
+        _L('Downloading ' + _P('DAQUAR') + ' in ' + _S(path))
+        # download_dataset(urls, path)
+
+        # untar the downloaded files
+        _L("Extracting the images in " + _P(images_dir))
+        os.system(
+            "tar xvfj {} -C {}".format(
+                os.path.join(path, urls['images'].split("/")[-1]), os.path.join(path)
+            )
         )
-    )
-    _L(_P(len(os.listdir(images_dir))) + " Images available in " + _S(images_dir))
+        _L('Extracted ' + _P(len(os.listdir(images_dir))) + ' Images in ' + _S(images_dir))
 
-    paths = [images_dir]
-    for url in urls:
-        paths.append(os.path.abspath(os.path.join(path, url.split("/")[-1])))
+    paths = {}
+    for key in urls:
+        paths[key] = os.path.abspath(os.path.join(path, urls[key].split("/")[-1]))
+
+    paths["images"] = images_dir
+    
     return paths
-
-
-if __name__ == "__main__":
-    files = download_daquar()
