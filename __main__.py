@@ -1,22 +1,20 @@
 from __future__ import print_function
+
 import os
-import os.path
 import time
 import json
-import matplotlib.pyplot as plt
 import torch
 import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import data as fryday_vision
+import datasets as fd
 
-from tqdm import tqdm
-from torchvision import transforms
 from tqdm import tqdm
 from PIL import Image
-
-import datasets as fryday_dataset
+from torchvision import transforms
+from datasets.vocabulary import Vocabulary
+from net.daquar import Net
 
 BATCH_SIZE = 64
 
@@ -43,9 +41,44 @@ BATCH_SIZE = 64
 
 
 if __name__ == "__main__":
-    # transform = transforms.Compose(
-    #     [transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))]
-    # )
+    daquar_processed_paths = fd.DaquarDataFolder().paths
+    transform = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))]
+    )
+    print(daquar_processed_paths)
+    dataset = fd.Daquar(daquar_processed_paths, transform)
+    trainloader = torch.utils.data.DataLoader(
+        dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=True
+    )
+
+    net = Net()
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+
+    for epoch in range(2):  # loop over the dataset multiple times
+        print(epoch)
+        running_loss = 0.0
+        for i, data in enumerate(trainloader, 0):
+            # get the inputs; data is a list of [inputs, labels]
+            inputs, labels = data
+
+            # zero the parameter gradients
+            optimizer.zero_grad()
+
+            # forward + backward + optimize
+            outputs = net(inputs)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+
+            # print statistics
+            running_loss += loss.item()
+            print('[%d, %5d] loss: %.3f' %
+                (epoch + 1, i + 1, running_loss / 2000))
+            running_loss = 0.0
+
+    print('Finished Training')
+
 
     # train_loader = ds.mnist(
     #     os.path.abspath("./data/mnist"), train=True, transform=transform
@@ -103,17 +136,20 @@ if __name__ == "__main__":
     #     test_loss, correct, len(test_loader.dataset),
     #     100. * correct / len(test_loader.dataset)))
 
-    daquar_processed_paths = fryday_dataset.DaquarDataset()._paths
+    # vocab = Vocabulary('hello')
+    # vocab.add_sentence('the sentecne tihsniwspes sjs')
+    # for i in range(vocab._num_words):
+    #     print(vocab.to_word(i))
 
-    transform = transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
-    )
-    dataset = fryday_dataset.Daquar(daquar_processed_paths, transform)
+    # transform = transforms.Compose(
+    #     [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+    # )
+    # dataset = fd.Daquar(daquar_processed_paths, transform)
 
-    # Dataset loader
-    train_loader = torch.utils.data.DataLoader(
-        dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=True
-    )
+    # # Dataset loader
+    # train_loader = torch.utils.data.DataLoader(
+    #     dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=True
+    # )
 
     # dataset_sizes = {x: len(train_loader[x]) for x in ['train', 'val']}
 
