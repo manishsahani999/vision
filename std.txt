@@ -1,1 +1,0 @@
-{'test_images': '/Users/hades/Code/research/vision/data/daquar/test_images', 'train_images': '/Users/hades/Code/research/vision/data/daquar/train_images', 'qa_train': '/Users/hades/Code/research/vision/data/daquar/qa_train.json'}

@@ -6,10 +6,10 @@
 #
 # you may not use this file except in compliance with the License.
 #
-# Unless required by applicable law or agreed to in writing, software 
-# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and 
+# See the License for the specific language governing permissions and
 # limitations under the License.
 
 # --*= daquar.py =*----
@@ -20,25 +20,29 @@ import torch
 import natsort
 
 from PIL import Image
-from log import _P, _L, _D, _S 
+from log import _P, _L, _S
 from torch.utils.data import Dataset
 
-# dataset modules developed as part of this resarch project 
+# dataset modules developed as part of this resarch project
 from datasets.vocabulary import Vocabulary
-from datasets.downloader import download_dataset
-from datasets.urls import DAQUAR_URLS, DAQUAR_IM, DAQUAR_QA_TRAIN, DAQUAR_IM_TRAIN
+# from datasets.downloader import download_dataset
+from datasets.urls import DAQUAR_URLS
+from datasets.urls import DAQUAR_IM, DAQUAR_QA_TRAIN, DAQUAR_IM_TRAIN
+
 
 ###############################################################################
-# 
+#
 #   Daquar is a major public and opensource dataset for visaul question answers
 #   it has around 1500 images of total size ~450MB, and around 16K training que
 #   -stion answers pair.
-# 
+#
 ###############################################################################
+
+
 class DaquarDataFolder:
     """
-    DaquarDataFolder is the Handler for DAQUAR dataset, includes the 
-    utilites to download images, question answer pairs and txt files. 
+    DaquarDataFolder is the Handler for DAQUAR dataset, includes the utilites
+    to download images, question answer pairs and txt files.
 
     Also has the data processing processing utils, including spliting of
     images, translating question answer pairs in a json.
@@ -48,61 +52,59 @@ class DaquarDataFolder:
         """Construct a brand new Dqauar Data Folder
 
         Args:
-            path (str, optional): path for the folder. Defaults to "./data/daquar".
-            force (bool, optional): force download the dataset. Defaults to False.
-            verbose (bool, optional): detailed loggin while processing. Defaults to False.
+            path (str, optional): folders path. Defaults to "./data/daquar".
+            force (bool, optional): to force download. Defaults to False.
+            verbose (bool, optional): detailed logs. Defaults to False.
         """
         self._path = os.path.abspath(path)
         self._force = force
         self._verbose = verbose
         self._urls = DAQUAR_URLS
 
-        self._IM_DIR_TEST = 'test_images'
-        self._IM_DIR_TRAIN = 'train_images'
-        self._QA_JSON_TRAIN = 'qa_train.json'
+        self._IM_DIR_TEST = "test_images"
+        self._IM_DIR_TRAIN = "train_images"
+        self._QA_JSON_TRAIN = "qa_train.json"
 
         ###############   Paths for image directories and files ###############
 
-        # images 
+        # images
         self._im_extracted_path = os.path.join(
-            self._path, self._urls[DAQUAR_IM].split('/')[-1].split('.')[0]
+            self._path, self._urls[DAQUAR_IM].split("/")[-1].split(".")[0]
         )
         self._im_test_path = os.path.join(self._path, self._IM_DIR_TEST)
         self._im_train_path = os.path.join(self._path, self._IM_DIR_TRAIN)
-        self._im_tar_path = os.path.join(self._path, self._urls[DAQUAR_IM].split('/')[-1])
-        self._im_train_list_path = os.path.join(
-            self._path, self._urls[DAQUAR_IM_TRAIN].split('/')[-1]
+        self._im_tar_path = os.path.join(
+            self._path, self._urls[DAQUAR_IM].split("/")[-1]
         )
-        
+        self._im_train_list_path = os.path.join(
+            self._path, self._urls[DAQUAR_IM_TRAIN].split("/")[-1]
+        )
+
         # qa pairs
         self._qa_train_txt_path = os.path.join(
-            self._path, self._urls[DAQUAR_QA_TRAIN].split('/')[-1]
+            self._path, self._urls[DAQUAR_QA_TRAIN].split("/")[-1]
         )
         self._qa_train_json_path = os.path.join(self._path, self._QA_JSON_TRAIN)
 
-        #----------------------------------------------------------------------
-        #  
-        #   logging if verbose is set to true 
-        # 
-        #
+        #   logging if verbose is set to true
         if self._verbose:
-            _L('Images .tar path '          + _P(self._im_tar_path))
-            _L('Images extraction path '    + _P(self._im_extracted_path))
-            _L('Test images path '          + _P(self._im_test_path))
-            _L('Train images path '         + _P(self._im_train_path))
-            _L('Train pairs text '          + _P(self._qa_train_txt_path))
-            _L('Train processed json '      + _P(self._qa_train_json_path))
-            _L('Images train list path'     + _P(self._im_train_list_path))
+            _L("Images .tar path " + _P(self._im_tar_path))
+            _L("Images extraction path " + _P(self._im_extracted_path))
+            _L("Test images path " + _P(self._im_test_path))
+            _L("Train images path " + _P(self._im_train_path))
+            _L("Train pairs text " + _P(self._qa_train_txt_path))
+            _L("Train processed json " + _P(self._qa_train_json_path))
+            _L("Images train list path" + _P(self._im_train_list_path))
 
         self.paths = {
-            self._IM_DIR_TEST : self._im_test_path,
+            self._IM_DIR_TEST: self._im_test_path,
             self._IM_DIR_TRAIN: self._im_train_path,
             "qa_train": self._qa_train_json_path,
         }
 
         if force or (
-            os.path.exists(self._im_train_path) == False and 
-            os.path.exists(self._im_test_path) == False
+            os.path.exists(self._im_train_path) == False
+            and os.path.exists(self._im_test_path) == False
         ):
             self._download()
             self._extract_images()
@@ -110,21 +112,27 @@ class DaquarDataFolder:
             self._process_images()
             self._process_questions()
 
+    def paths(self):
+        return self.paths
+
     def _download(self):
         """Download the dataset from the web, urls are predefined in the config
         """
-        if self._verbose: _L("Downloading " + _P("DAQUAR") + " in " + _S(self._path))
+        if self._verbose:
+            _L("Downloading " + _P("DAQUAR") + " in " + _S(self._path))
 
     #     download_dataset(self._urls, self._path)
 
     def _extract_images(self):
         """extract the downloaded images
         """
-        if self._verbose: _L("Extracting the images in " + _P(self._im_extracted_path))
+        if self._verbose:
+            _L("Extracting the images in " + _P(self._im_extracted_path))
 
         os.system(
             "tar xvfj {} -C {} {}".format(
-                self._im_tar_path, self._path,
+                self._im_tar_path,
+                self._path,
                 ">/dev/null 2>&1" if self._verbose == False else " ",
             )
         )
@@ -132,16 +140,13 @@ class DaquarDataFolder:
     def _resolve_dirs(self):
         """Resolve directories, delete old directories and create new ones
         """
-        if self._verbose: _L("Resolving directories")
+        if self._verbose:
+            _L("Resolving directories")
         # Del existing directories
-        os.system(
-            "rm -rf {} {}".format(self._im_test_path, self._im_train_path)
-        )
+        os.system("rm -rf {} {}".format(self._im_test_path, self._im_train_path))
 
         # Rename the intermediate folder to test_images
-        os.system(
-            "mv {} {}".format(self._im_extracted_path, self._im_test_path)
-        )
+        os.system("mv {} {}".format(self._im_extracted_path, self._im_test_path))
         os.makedirs(self._im_train_path, exist_ok=True)
 
     def _process_images(self):
@@ -154,30 +159,37 @@ class DaquarDataFolder:
 
         # Seperate files according to train.txt and test.txt
 
-        if self._verbose: _L("Seperating files from {} to {}".format(
-                _P(self._im_test_path), _S(self._im_train_path)
-            ))
+        if self._verbose:
+            _L(
+                "Seperating files from {} to {}".format(
+                    _P(self._im_test_path), _S(self._im_train_path)
+                )
+            )
 
         with open(self._im_train_list_path) as training_images_list:
             for image in [line.rstrip("\n") for line in training_images_list]:
 
                 # mv  files from from_ to to_
-                from_ = (os.path.join(self._im_test_path, image) + ".png")
-                to_ = (os.path.join(self._im_train_path, image)+ ".png")
+                from_ = os.path.join(self._im_test_path, image) + ".png"
+                to_ = os.path.join(self._im_train_path, image) + ".png"
 
                 os.system("mv {} {}".format(from_, to_))
 
                 if self._verbose:
                     _L("{} moved to {}".format(_P(from_), _S(to_)))
-        
-        if self._verbose: 
+
+        if self._verbose:
             _L(
-                "Extracted " + _P(len(os.listdir(self._im_test_path)))
-                + " Images in " + _S(self._im_test_path)
+                "Extracted "
+                + _P(len(os.listdir(self._im_test_path)))
+                + " Images in "
+                + _S(self._im_test_path)
             )
             _L(
-                "Extracted " + _P(len(os.listdir(self._im_train_path)))
-                + " Images in " + _S(self._im_train_path)
+                "Extracted "
+                + _P(len(os.listdir(self._im_train_path)))
+                + " Images in "
+                + _S(self._im_train_path)
             )
 
     def _process_questions(self):
@@ -203,6 +215,12 @@ class DaquarDataFolder:
                 json.dump(processed_questions, f, ensure_ascii=False, indent=4)
 
 
+###############################################################################
+#
+#   Daquar's handler for pytorch, with in-built vocabulary for processing the
+#   questions and answers.
+#
+###############################################################################
 class Daquar(Dataset):
     """
     DAQUAR dataset, more info can be found at 
@@ -219,15 +237,15 @@ class Daquar(Dataset):
         self._questions = {}
         self._answers = {}
 
-        self._vocab = Vocabulary('qa')
-        self._ans_vocab = Vocabulary('answer')
+        self._vocab = Vocabulary("qa")
+        self._ans_vocab = Vocabulary("answer")
 
         self.transform = transform
         self.total_imgs = natsort.natsorted(os.listdir(self._images))
 
         self._build_vocab()
         self._process_qa()
-    
+
     def _build_vocab(self):
         with open(self._qa_json) as f:
             json_pairs = json.load(f)
@@ -244,12 +262,12 @@ class Daquar(Dataset):
                 q = pair["question"]
                 a = pair["answers"]
 
-                self._questions[pair['image_id']] = self._encode_question(q)
-                self._answers[pair['image_id']] = self._encode_answers(a)
+                self._questions[pair["image_id"]] = self._encode_question(q)
+                self._answers[pair["image_id"]] = self._encode_answers(a)
 
     def _encode_question(self, question):
         vec = torch.zeros(self._vocab._longest_sentence).long()
-        for i, token in enumerate(question.split(' ')):
+        for i, token in enumerate(question.split(" ")):
             vec[i] = self._vocab.to_index(token)
 
         return vec
@@ -260,9 +278,9 @@ class Daquar(Dataset):
             idx = self._ans_vocab.to_index(ans)
             if idx is not None:
                 vec[idx] = 1
-        
+
         return vec
-    
+
     def __len__(self):
         """
         returns the length of the dataset
@@ -276,9 +294,13 @@ class Daquar(Dataset):
         v = self.transform(
             Image.open(os.path.join(self._images, self.total_imgs[idx])).convert("RGB")
         )
-        image_id = self.total_imgs[idx].split('image')[-1].split('.png')[0]
-        if (image_id not in self._questions.keys()):
-            return v, torch.zeros(self._vocab._longest_sentence), self._encode_answers([])
+        image_id = self.total_imgs[idx].split("image")[-1].split(".png")[0]
+        if image_id not in self._questions.keys():
+            return (
+                v,
+                torch.zeros(self._vocab._longest_sentence),
+                self._encode_answers([]),
+            )
 
         q = self._questions[image_id]
         a = self._answers[image_id]
